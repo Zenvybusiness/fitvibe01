@@ -4,6 +4,20 @@ import '../models/user_action.dart';
 import '../state/preference_state.dart';
 
 class DecisionEngine {
+  static String getVibe(Item item) {
+    return item.tags.firstWhere(
+      (t) => t.startsWith("vibe:"),
+      orElse: () => "vibe:unknown",
+    );
+  }
+
+  static String getFit(Item item) {
+    return item.tags.firstWhere(
+      (t) => t.startsWith("fit:"),
+      orElse: () => "fit:unknown",
+    );
+  }
+
   static Item getNextItem({
     required PreferenceState state,
     required Item? lastItem,
@@ -127,6 +141,8 @@ class DecisionEngine {
     final List<Item> confidencePool =
         confidence > 0.7
             ? topItems.take(topItems.length >= 2 ? 2 : topItems.length).toList()
+            : confidence < 0.3
+            ? topItems.take(topItems.length >= 4 ? 4 : topItems.length).toList()
             : topItems;
     final List<Item> selectionPool =
         likeStreak >= 2
@@ -134,12 +150,18 @@ class DecisionEngine {
                 .take(confidencePool.length >= 2 ? 2 : confidencePool.length)
                 .toList()
             : confidencePool;
-    final String blockedVibe =
-        recentVibes.length >= 2 &&
-                recentVibes[recentVibes.length - 1] ==
-                    recentVibes[recentVibes.length - 2]
-            ? recentVibes[recentVibes.length - 1]
-            : '';
+    final List<String> last4Vibes =
+        recentVibes.length <= 4
+            ? recentVibes
+            : recentVibes.sublist(recentVibes.length - 4);
+    String blockedVibe = '';
+    for (final String vibe in last4Vibes) {
+      final int count = last4Vibes.where((v) => v == vibe).length;
+      if (count >= 3) {
+        blockedVibe = vibe;
+        break;
+      }
+    }
     final List<Item> vibeSafePool =
         blockedVibe.isNotEmpty
             ? selectionPool.where((item) => getVibe(item) != blockedVibe).toList()
@@ -195,6 +217,41 @@ class DecisionEngine {
         if (!recentItems.contains(item.id)) {
           selected = item;
           break;
+        }
+      }
+
+      if (lastAction == ActionType.like) {
+        final String lastItemVibe = DecisionEngine.getVibe(lastItem);
+        final String lastItemFit = DecisionEngine.getFit(lastItem);
+        final bool isValidLikeSelection =
+            DecisionEngine.getVibe(selected) == lastItemVibe ||
+            DecisionEngine.getFit(selected) == lastItemFit;
+
+        if (!isValidLikeSelection) {
+          for (final item in topItems) {
+            final bool isValidMatch =
+                DecisionEngine.getVibe(item) == lastItemVibe ||
+                DecisionEngine.getFit(item) == lastItemFit;
+            if (isValidMatch) {
+              selected = item;
+              break;
+            }
+          }
+        }
+      }
+
+      if (lastAction == ActionType.skip) {
+        final String lastItemVibe = DecisionEngine.getVibe(lastItem);
+        final bool isValidSkipSelection =
+            DecisionEngine.getVibe(selected) != lastItemVibe;
+
+        if (!isValidSkipSelection) {
+          for (final item in topItems) {
+            if (DecisionEngine.getVibe(item) != lastItemVibe) {
+              selected = item;
+              break;
+            }
+          }
         }
       }
     }

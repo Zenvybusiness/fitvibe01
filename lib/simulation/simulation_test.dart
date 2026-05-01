@@ -55,12 +55,13 @@ void main() {
     final String nextVibe = nextItem.tags.firstWhere((t) => t.startsWith('vibe:'));
     final String nextFit = nextItem.tags.firstWhere((t) => t.startsWith('fit:'));
 
+    final ActionType lastAction = action;
     print(
-      'DEBUG | action=${action.name} | likeStreak=${controller.likeStreak} | skipStreak=${controller.skipStreak} | confidence=${controller.confidence.toStringAsFixed(2)} | selected_vibe=$nextVibe',
+      'DEBUG | lastAction=${lastAction.name} | last_item_vibe=$vibe | selected_item_vibe=$nextVibe | confidence=${controller.confidence.toStringAsFixed(2)} | likeStreak=${controller.likeStreak} | skipStreak=${controller.skipStreak}',
     );
 
     final bool reactionOk =
-        action == ActionType.like
+        lastAction == ActionType.like
             ? (nextVibe == vibe || nextFit == fit)
             : (nextVibe != vibe);
     print(reactionOk ? 'REACTION_OK' : 'REACTION_FAIL');
