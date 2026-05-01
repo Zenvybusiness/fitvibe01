@@ -63,10 +63,20 @@ class DecisionEngine {
       }
     }
 
+    final List<String> last3 =
+        recentItems.length >= 3
+            ? recentItems.sublist(recentItems.length - 3)
+            : recentItems;
+    final Set<String> recentSet = last3.toSet();
+    final List<Item> hardRepeatFiltered =
+        filtered.where((item) => !recentSet.contains(item.id)).toList();
+    final List<Item> candidates =
+        hardRepeatFiltered.isEmpty ? filtered : hardRepeatFiltered;
+
     // =========================
     // STEP 2: SCORING
     // =========================
-    final scored = filtered.map((item) {
+    final scored = candidates.map((item) {
       double score = 0.1 + state.getScore(item.tags);
 
       // soft repeat penalty
@@ -131,6 +141,28 @@ class DecisionEngine {
       }
     }
 
+    List<Item> validPool = topItems;
+    if (lastItem != null) {
+      final String lastVibe = DecisionEngine.getVibe(lastItem);
+      final String lastFit = DecisionEngine.getFit(lastItem);
+
+      if (lastAction == ActionType.like) {
+        validPool = topItems.where((item) {
+          return item.tags.contains(lastVibe) || item.tags.contains(lastFit);
+        }).toList();
+      }
+
+      if (lastAction == ActionType.skip) {
+        validPool = topItems.where((item) {
+          return !item.tags.contains(lastVibe);
+        }).toList();
+      }
+    }
+
+    if (validPool.isEmpty) {
+      validPool = topItems;
+    }
+
     if (topItems.isEmpty) {
       return allItems.first;
     }
@@ -140,10 +172,14 @@ class DecisionEngine {
     // =========================
     final List<Item> confidencePool =
         confidence > 0.7
-            ? topItems.take(topItems.length >= 2 ? 2 : topItems.length).toList()
+            ? validPool
+                .take(validPool.length >= 2 ? 2 : validPool.length)
+                .toList()
             : confidence < 0.3
-            ? topItems.take(topItems.length >= 4 ? 4 : topItems.length).toList()
-            : topItems;
+            ? validPool
+                .take(validPool.length >= 4 ? 4 : validPool.length)
+                .toList()
+            : validPool;
     final List<Item> selectionPool =
         likeStreak >= 2
             ? confidencePool
@@ -179,10 +215,10 @@ class DecisionEngine {
     if (skipStreak >= 3) {
       final List<Item> explorationPool =
           blockedVibe.isNotEmpty
-              ? topItems.where((item) => getVibe(item) != blockedVibe).toList()
-              : topItems;
+              ? validPool.where((item) => getVibe(item) != blockedVibe).toList()
+              : validPool;
       final List<Item> activeExplorationPool =
-          explorationPool.isEmpty ? topItems : explorationPool;
+          explorationPool.isEmpty ? validPool : explorationPool;
       if (activeExplorationPool.length > 3) {
         selected = activeExplorationPool[actionCount % 2 == 0 ? 2 : 3];
       } else if (activeExplorationPool.length > 2) {
@@ -221,36 +257,46 @@ class DecisionEngine {
       }
 
       if (lastAction == ActionType.like) {
-        final String lastItemVibe = DecisionEngine.getVibe(lastItem);
-        final String lastItemFit = DecisionEngine.getFit(lastItem);
+        final String lastVibe = DecisionEngine.getVibe(lastItem);
+        final String lastFit = DecisionEngine.getFit(lastItem);
+        final String selectedVibe = DecisionEngine.getVibe(selected);
+        final String selectedFit = DecisionEngine.getFit(selected);
         final bool isValidLikeSelection =
-            DecisionEngine.getVibe(selected) == lastItemVibe ||
-            DecisionEngine.getFit(selected) == lastItemFit;
+            selectedVibe == lastVibe || selectedFit == lastFit;
 
         if (!isValidLikeSelection) {
-          for (final item in topItems) {
+          bool found = false;
+          for (final item in validPool) {
             final bool isValidMatch =
-                DecisionEngine.getVibe(item) == lastItemVibe ||
-                DecisionEngine.getFit(item) == lastItemFit;
+                DecisionEngine.getVibe(item) == lastVibe ||
+                DecisionEngine.getFit(item) == lastFit;
             if (isValidMatch) {
               selected = item;
+              found = true;
               break;
             }
+          }
+          if (!found) {
+            selected = validPool.first;
           }
         }
       }
 
       if (lastAction == ActionType.skip) {
-        final String lastItemVibe = DecisionEngine.getVibe(lastItem);
-        final bool isValidSkipSelection =
-            DecisionEngine.getVibe(selected) != lastItemVibe;
+        final String lastVibe = DecisionEngine.getVibe(lastItem);
+        final String selectedVibe = DecisionEngine.getVibe(selected);
 
-        if (!isValidSkipSelection) {
-          for (final item in topItems) {
-            if (DecisionEngine.getVibe(item) != lastItemVibe) {
+        if (selectedVibe == lastVibe) {
+          bool found = false;
+          for (final item in validPool) {
+            if (DecisionEngine.getVibe(item) != lastVibe) {
               selected = item;
+              found = true;
               break;
             }
+          }
+          if (!found) {
+            selected = validPool.last;
           }
         }
       }
