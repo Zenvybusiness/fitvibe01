@@ -11,68 +11,83 @@ class DecisionEngine {
     required List<String> recentItems,
     required List<String> recentVibes,
     required int actionCount,
+    required int skipStreak,
+    required int likeStreak,
+    required double confidence,
   }) {
+    final List<Item> allItems = List<Item>.from(Dataset.items);
 
-    final List<Item> candidates = List<Item>.from(Dataset.items);
+    int overlapCount(Item a, Item b) {
+      return a.tags.where((t) => b.tags.contains(t)).length;
+    }
 
-    // ===============================
-    // STEP 1: SCORING ONLY (NO FILTER)
-    // ===============================
-    final List<MapEntry<Item, double>> scored = candidates.map((item) {
+    String getVibe(Item item) {
+      return item.tags.firstWhere(
+        (t) => t.startsWith('vibe:'),
+        orElse: () => '',
+      );
+    }
+
+    // =========================
+    // STEP 1: LIGHT FILTER
+    // =========================
+    List<Item> filtered = allItems;
+
+    if (lastItem != null) {
+      filtered = allItems.where((item) {
+        final overlap = overlapCount(item, lastItem);
+
+        if (lastAction == ActionType.like) {
+          return overlap >= 1;
+        } else {
+          return overlap <= 1;
+        }
+      }).toList();
+
+      if (filtered.length < 3) {
+        filtered = allItems;
+      }
+    }
+
+    // =========================
+    // STEP 2: SCORING
+    // =========================
+    final scored = filtered.map((item) {
       double score = 0.1 + state.getScore(item.tags);
 
-      // ❗ reduce repeat
+      // soft repeat penalty
       if (recentItems.contains(item.id)) {
-        score *= 0.2;
+        score *= 0.5;
       }
 
       if (lastItem != null) {
-        final overlap =
-            item.tags.where((t) => lastItem.tags.contains(t)).length;
+        final overlap = overlapCount(item, lastItem);
 
-        // ✅ LIKE → enforce similarity
         if (lastAction == ActionType.like) {
           score += overlap * 2.0;
 
           if (overlap == 0) {
-            score *= 0.3;
+            score *= 0.5;
+          }
+        } else {
+          score -= overlap * 0.5;
+
+          if (overlap == 0) {
+            score += 1.0;
           }
         }
 
-        // ✅ SKIP → HARD reaction
-        if (lastAction == ActionType.skip) {
-          score -= overlap * 2.0;
-
-          final lastVibe = lastItem.tags
-              .firstWhere((t) => t.startsWith("vibe:"), orElse: () => "");
-
-          final currentVibe = item.tags
-              .firstWhere((t) => t.startsWith("vibe:"), orElse: () => "");
-
-          if (currentVibe == lastVibe) {
-            score *= 0.2;
-          }
-        }
-
-        // similarity penalty
-        if (overlap >= 2) {
+        if (overlap >= 3) {
           score *= 0.7;
         }
-
-        final uniqueTags =
-            item.tags.where((t) => !lastItem.tags.contains(t)).length;
-
-        score += uniqueTags * 0.2;
       }
 
-      //  VIBE LOOP KILL
-      final vibe = item.tags
-          .firstWhere((t) => t.startsWith("vibe:"), orElse: () => "");
-
+      // vibe control (soft)
+      final vibe = getVibe(item);
       final vibeCount = recentVibes.where((v) => v == vibe).length;
 
-      if (vibeCount >= 2) {
-        score *= 0.3; // strong block
+      if (vibeCount >= 3) {
+        score *= 0.7;
       }
 
       if (score < 0) score = 0;
@@ -80,24 +95,103 @@ class DecisionEngine {
       return MapEntry(item, score);
     }).toList();
 
-    // ===============================
-    // STEP 2: SORT
-    // ===============================
+    // =========================
+    // STEP 3: SORT + TOP
+    // =========================
     scored.sort((a, b) => b.value.compareTo(a.value));
 
-    final List<Item> topItems =
-        scored.take(5).map((e) => e.key).toList();
+    final topItems = scored
+        .take(scored.length < 5 ? scored.length : 5)
+        .map((e) => e.key)
+        .toList();
 
-    // ===============================
-    // STEP 3: NO RANDOMNESS
-    // ===============================
-    Item selected = topItems.first;
+    bool isWowTime = (actionCount % 6 == 0);
+    if (isWowTime) {
+      for (final item in allItems) {
+        final vibe = getVibe(item);
+        final isRareVibe =
+            vibe == 'vibe:bold' || vibe == 'vibe:formal' || vibe == 'vibe:sporty';
+        if (!recentItems.contains(item.id) && isRareVibe) {
+          return item;
+        }
+      }
+    }
 
-    // ===============================
-    // STEP 4: FINAL SAFETY ONLY
-    // ===============================
-    if (recentItems.contains(selected.id)) {
-      for (final item in topItems) {
+    if (topItems.isEmpty) {
+      return allItems.first;
+    }
+
+    // =========================
+    // STEP 4: SELECTION
+    // =========================
+    final List<Item> confidencePool =
+        confidence > 0.7
+            ? topItems.take(topItems.length >= 2 ? 2 : topItems.length).toList()
+            : topItems;
+    final List<Item> selectionPool =
+        likeStreak >= 2
+            ? confidencePool
+                .take(confidencePool.length >= 2 ? 2 : confidencePool.length)
+                .toList()
+            : confidencePool;
+    final String blockedVibe =
+        recentVibes.length >= 2 &&
+                recentVibes[recentVibes.length - 1] ==
+                    recentVibes[recentVibes.length - 2]
+            ? recentVibes[recentVibes.length - 1]
+            : '';
+    final List<Item> vibeSafePool =
+        blockedVibe.isNotEmpty
+            ? selectionPool.where((item) => getVibe(item) != blockedVibe).toList()
+            : selectionPool;
+    final List<Item> activeSelectionPool =
+        vibeSafePool.isEmpty ? selectionPool : vibeSafePool;
+    Item selected;
+
+    if (actionCount < 5) {
+      selected = activeSelectionPool[actionCount % activeSelectionPool.length];
+    } else {
+      selected = activeSelectionPool[0];
+    }
+
+    if (skipStreak >= 3) {
+      final List<Item> explorationPool =
+          blockedVibe.isNotEmpty
+              ? topItems.where((item) => getVibe(item) != blockedVibe).toList()
+              : topItems;
+      final List<Item> activeExplorationPool =
+          explorationPool.isEmpty ? topItems : explorationPool;
+      if (activeExplorationPool.length > 3) {
+        selected = activeExplorationPool[actionCount % 2 == 0 ? 2 : 3];
+      } else if (activeExplorationPool.length > 2) {
+        selected = activeExplorationPool[2];
+      } else {
+        selected = activeExplorationPool.last;
+      }
+    }
+
+    // =========================
+    // STEP 5: SOFT ENFORCEMENT
+    // =========================
+    if (lastItem != null) {
+      final lastVibe = getVibe(lastItem);
+
+      for (final item in activeSelectionPool) {
+        final vibe = getVibe(item);
+
+        if (lastAction == ActionType.like && vibe == lastVibe) {
+          selected = item;
+          break;
+        }
+
+        if (lastAction == ActionType.skip && vibe != lastVibe) {
+          selected = item;
+          break;
+        }
+      }
+
+      // final repeat safety
+      for (final item in activeSelectionPool) {
         if (!recentItems.contains(item.id)) {
           selected = item;
           break;

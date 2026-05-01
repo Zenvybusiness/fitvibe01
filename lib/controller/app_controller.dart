@@ -1,61 +1,62 @@
 import '../core/engine/decision_engine.dart';
-import '../core/engine/learning_engine.dart';
 import '../core/models/item.dart';
 import '../core/models/user_action.dart';
 import '../core/state/preference_state.dart';
-import '../data/initial_pool.dart';
+import '../data/dataset.dart';
 
 class AppController {
-  final PreferenceState preferenceState;
-  Item? currentItem;
-  ActionType lastAction;
-  final List<String> recentItems;
-  final List<String> recentVibes;
-  int actionCount;
+  final PreferenceState state = PreferenceState();
+  late Item currentItem;
+  List<String> recentItems = [];
+  List<String> recentVibes = [];
+  int actionCount = 0;
+  int skipStreak = 0;
+  int likeStreak = 0;
+  double confidence = 0.0;
 
-  AppController()
-      : preferenceState = PreferenceState(),
-        currentItem = InitialPool.getItems().first,
-        lastAction = ActionType.like,
-        recentItems = [],
-        recentVibes = [],
-        actionCount = 0;
-
-  Item getCurrentItem() {
-    return currentItem!;
+  void init() {
+    currentItem = Dataset.items.first;
   }
 
-  void onAction(ActionType action) {
-    actionCount += 1;
+  Item getCurrentItem() {
+    return currentItem;
+  }
 
-    LearningEngine.update(preferenceState, currentItem!, action);
+  void onAction(bool isLike) {
+    actionCount++;
 
-    recentItems.add(currentItem!.id);
-    if (recentItems.length > 3) {
+    if (isLike) {
+      likeStreak += 1;
+      skipStreak = 0;
+    } else {
+      skipStreak += 1;
+      likeStreak = 0;
+    }
+
+    confidence = (likeStreak * 0.1).clamp(0.0, 1.0);
+
+    recentItems.add(currentItem.id);
+    if (recentItems.length > 5) {
       recentItems.removeAt(0);
     }
 
-    final String vibe = currentItem!.tags.first;
+    final String vibe =
+        currentItem.tags.firstWhere((String t) => t.startsWith('vibe:'));
     recentVibes.add(vibe);
-    if (recentVibes.length > 3) {
+    if (recentVibes.length > 5) {
       recentVibes.removeAt(0);
     }
 
-    if (actionCount < 3) {
-      currentItem = InitialPool.getItems()[actionCount % 3];
-      lastAction = action;
-      return;
-    }
-
     currentItem = DecisionEngine.getNextItem(
-      state: preferenceState,
+      state: state,
       lastItem: currentItem,
-      lastAction: lastAction,
+      lastAction: isLike ? ActionType.like : ActionType.skip,
       recentItems: recentItems,
       recentVibes: recentVibes,
       actionCount: actionCount,
+      skipStreak: skipStreak,
+      likeStreak: likeStreak,
+      confidence: confidence,
     );
-
-    lastAction = action;
   }
 }
