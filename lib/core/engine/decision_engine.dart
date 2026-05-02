@@ -63,10 +63,9 @@ class DecisionEngine {
       }
     }
 
-    final List<String> last3 =
-        recentItems.length >= 3
-            ? recentItems.sublist(recentItems.length - 3)
-            : recentItems;
+    final List<String> last3 = recentItems.length >= 3
+        ? recentItems.sublist(recentItems.length - 3)
+        : recentItems;
     final Set<String> recentSet = last3.toSet();
     final List<Item> hardRepeatFiltered =
         filtered.where((item) => !recentSet.contains(item.id)).toList();
@@ -133,8 +132,9 @@ class DecisionEngine {
     if (isWowTime) {
       for (final item in allItems) {
         final vibe = getVibe(item);
-        final isRareVibe =
-            vibe == 'vibe:bold' || vibe == 'vibe:formal' || vibe == 'vibe:sporty';
+        final isRareVibe = vibe == 'vibe:bold' ||
+            vibe == 'vibe:formal' ||
+            vibe == 'vibe:sporty';
         if (!recentItems.contains(item.id) && isRareVibe) {
           return item;
         }
@@ -170,26 +170,21 @@ class DecisionEngine {
     // =========================
     // STEP 4: SELECTION
     // =========================
-    final List<Item> confidencePool =
-        confidence > 0.7
-            ? validPool
-                .take(validPool.length >= 2 ? 2 : validPool.length)
-                .toList()
-            : confidence < 0.3
+    final List<Item> confidencePool = confidence > 0.7
+        ? validPool.take(validPool.length >= 2 ? 2 : validPool.length).toList()
+        : confidence < 0.3
             ? validPool
                 .take(validPool.length >= 4 ? 4 : validPool.length)
                 .toList()
             : validPool;
-    final List<Item> selectionPool =
-        likeStreak >= 2
-            ? confidencePool
-                .take(confidencePool.length >= 2 ? 2 : confidencePool.length)
-                .toList()
-            : confidencePool;
-    final List<String> last4Vibes =
-        recentVibes.length <= 4
-            ? recentVibes
-            : recentVibes.sublist(recentVibes.length - 4);
+    final List<Item> selectionPool = likeStreak >= 2
+        ? confidencePool
+            .take(confidencePool.length >= 2 ? 2 : confidencePool.length)
+            .toList()
+        : confidencePool;
+    final List<String> last4Vibes = recentVibes.length <= 4
+        ? recentVibes
+        : recentVibes.sublist(recentVibes.length - 4);
     String blockedVibe = '';
     for (final String vibe in last4Vibes) {
       final int count = last4Vibes.where((v) => v == vibe).length;
@@ -198,10 +193,9 @@ class DecisionEngine {
         break;
       }
     }
-    final List<Item> vibeSafePool =
-        blockedVibe.isNotEmpty
-            ? selectionPool.where((item) => getVibe(item) != blockedVibe).toList()
-            : selectionPool;
+    final List<Item> vibeSafePool = blockedVibe.isNotEmpty
+        ? selectionPool.where((item) => getVibe(item) != blockedVibe).toList()
+        : selectionPool;
     final List<Item> activeSelectionPool =
         vibeSafePool.isEmpty ? selectionPool : vibeSafePool;
     Item selected;
@@ -213,10 +207,9 @@ class DecisionEngine {
     }
 
     if (skipStreak >= 3) {
-      final List<Item> explorationPool =
-          blockedVibe.isNotEmpty
-              ? validPool.where((item) => getVibe(item) != blockedVibe).toList()
-              : validPool;
+      final List<Item> explorationPool = blockedVibe.isNotEmpty
+          ? validPool.where((item) => getVibe(item) != blockedVibe).toList()
+          : validPool;
       final List<Item> activeExplorationPool =
           explorationPool.isEmpty ? validPool : explorationPool;
       if (activeExplorationPool.length > 3) {
@@ -269,7 +262,7 @@ class DecisionEngine {
           for (final item in validPool) {
             final bool isValidMatch =
                 DecisionEngine.getVibe(item) == lastVibe ||
-                DecisionEngine.getFit(item) == lastFit;
+                    DecisionEngine.getFit(item) == lastFit;
             if (isValidMatch) {
               selected = item;
               found = true;
