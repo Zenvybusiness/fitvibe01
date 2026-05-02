@@ -27,8 +27,7 @@ class _HomeScreenState extends State<HomeScreen> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Text('ID: ${item.id}'),
-            Text('Tags: ${item.tags.join(', ')}'),
+            Image.asset(item.image),
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
