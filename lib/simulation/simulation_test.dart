@@ -1,9 +1,9 @@
 import '../controller/app_controller.dart';
 import '../core/models/user_action.dart';
 
-void main() {
+Future<void> main() async {
   final AppController controller = AppController();
-  controller.init();
+  await controller.init();
   final List<ActionType> pattern = [
     ActionType.like,
     ActionType.like,
@@ -20,7 +20,7 @@ void main() {
 
   for (int step = 1; step <= 30; step++) {
     final ActionType action = pattern[(step - 1) % pattern.length];
-    final item = controller.getCurrentItem();
+    final item = controller.getCurrentItem()!;
     final String vibe = item.tags.firstWhere((t) => t.startsWith('vibe:'));
     final String fit = item.tags.firstWhere((t) => t.startsWith('fit:'));
 
@@ -51,7 +51,7 @@ void main() {
     }
 
     controller.onAction(action == ActionType.like);
-    final nextItem = controller.getCurrentItem();
+    final nextItem = controller.getCurrentItem()!;
     final String nextVibe = nextItem.tags.firstWhere((t) => t.startsWith('vibe:'));
     final String nextFit = nextItem.tags.firstWhere((t) => t.startsWith('fit:'));
 

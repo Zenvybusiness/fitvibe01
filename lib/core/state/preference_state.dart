@@ -23,4 +23,33 @@ class PreferenceState {
     }
     weights[tag] = next;
   }
+
+  void increaseWeight(String tag, double value) {
+    update(tag, value);
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'weights': weights,
+    };
+  }
+
+  void fromJson(Map<String, dynamic> json) {
+    final dynamic raw = json['weights'] ?? {};
+    final Map<dynamic, dynamic> map = raw is Map ? raw : <dynamic, dynamic>{};
+    weights
+      ..clear()
+      ..addAll(
+        map.map(
+          (key, value) => MapEntry(
+            key.toString(),
+            (value is num ? value.toDouble() : 1.0),
+          ),
+        ),
+      );
+  }
+
+  void reset() {
+    weights.clear();
+  }
 }

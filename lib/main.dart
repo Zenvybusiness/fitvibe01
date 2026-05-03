@@ -1,19 +1,27 @@
 import 'package:flutter/material.dart';
 
-import 'screens/splash_screen.dart';
+import 'screens/home_screen.dart';
+import 'screens/onboarding_screen.dart';
+import 'services/persistence_service.dart';
 
-void main() {
-  runApp(const FanApp());
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  final Map<String, dynamic> initialData = await PersistenceService.loadData();
+  final bool hasSeenOnboarding =
+      initialData['hasSeenOnboarding'] as bool? ?? false;
+  runApp(FanApp(hasSeenOnboarding: hasSeenOnboarding));
 }
 
 class FanApp extends StatelessWidget {
-  const FanApp({super.key});
+  const FanApp({super.key, required this.hasSeenOnboarding});
+
+  final bool hasSeenOnboarding;
 
   @override
   Widget build(BuildContext context) {
-    return const MaterialApp(
+    return MaterialApp(
       debugShowCheckedModeBanner: false,
-      home: const SplashScreen(),
+      home: hasSeenOnboarding ? const HomeScreen() : const OnboardingScreen(),
     );
   }
 }

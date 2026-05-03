@@ -1,27 +1,31 @@
 import 'package:flutter/material.dart';
 
-import 'onboarding_screen.dart';
+import 'home_screen.dart';
 
-bool _splashDelayStarted = false;
-
-class SplashScreen extends StatelessWidget {
+class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    if (!_splashDelayStarted) {
-      _splashDelayStarted = true;
-      Future.delayed(const Duration(seconds: 2), () {
-        if (!context.mounted) return;
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute<void>(
-            builder: (context) => const OnboardingScreen(),
-          ),
-        );
-      });
-    }
+  State<SplashScreen> createState() => _SplashScreenState();
+}
 
+class _SplashScreenState extends State<SplashScreen> {
+  @override
+  void initState() {
+    super.initState();
+    Future.delayed(const Duration(seconds: 2), () {
+      if (!mounted) return;
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute<void>(
+          builder: (context) => const HomeScreen(),
+        ),
+      );
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
     return const Scaffold(
       body: Center(
         child: Text('FitVibe'),

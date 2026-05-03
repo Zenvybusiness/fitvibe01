@@ -4,6 +4,24 @@ import '../models/user_action.dart';
 import '../state/preference_state.dart';
 
 class DecisionEngine {
+  static Map<String, int> vibeWeights = {};
+
+  static String getDominantVibe() {
+    if (vibeWeights.isEmpty) {
+      return '';
+    }
+    return vibeWeights.entries.reduce((a, b) => a.value > b.value ? a : b).key;
+  }
+
+  static String getTopVibe() {
+    if (vibeWeights.isEmpty) {
+      return 'unknown';
+    }
+    return vibeWeights.entries
+        .reduce((a, b) => a.value > b.value ? a : b)
+        .key;
+  }
+
   static String getVibe(Item item) {
     return item.tags.firstWhere(
       (t) => t.startsWith("vibe:"),
@@ -28,8 +46,16 @@ class DecisionEngine {
     required int skipStreak,
     required int likeStreak,
     required double confidence,
+    String preferredVibe = '',
+    bool recordVibeWeights = true,
   }) {
     final List<Item> allItems = List<Item>.from(Dataset.items);
+
+    if (recordVibeWeights && lastItem != null) {
+      final String vibeTracked = DecisionEngine.getVibe(lastItem);
+      vibeWeights[vibeTracked] = (vibeWeights[vibeTracked] ?? 0) +
+          (lastAction == ActionType.like ? 2 : -1);
+    }
 
     int overlapCount(Item a, Item b) {
       return a.tags.where((t) => b.tags.contains(t)).length;
@@ -69,8 +95,18 @@ class DecisionEngine {
     final Set<String> recentSet = last3.toSet();
     final List<Item> hardRepeatFiltered =
         filtered.where((item) => !recentSet.contains(item.id)).toList();
-    final List<Item> candidates =
+    List<Item> candidates =
         hardRepeatFiltered.isEmpty ? filtered : hardRepeatFiltered;
+
+    if (preferredVibe.isNotEmpty &&
+        (actionCount == 0 || confidence == 0)) {
+      final preferredOnly = candidates
+          .where((item) => DecisionEngine.getVibe(item) == preferredVibe)
+          .toList();
+      if (preferredOnly.isNotEmpty) {
+        candidates = preferredOnly;
+      }
+    }
 
     // =========================
     // STEP 2: SCORING
@@ -129,7 +165,7 @@ class DecisionEngine {
         .toList();
 
     bool isWowTime = (actionCount % 6 == 0);
-    if (isWowTime) {
+    if (isWowTime && !(actionCount == 0 && preferredVibe.isNotEmpty)) {
       for (final item in allItems) {
         final vibe = getVibe(item);
         final isRareVibe = vibe == 'vibe:bold' ||
@@ -177,11 +213,22 @@ class DecisionEngine {
                 .take(validPool.length >= 4 ? 4 : validPool.length)
                 .toList()
             : validPool;
-    final List<Item> selectionPool = likeStreak >= 2
+    List<Item> selectionPool = likeStreak >= 2
         ? confidencePool
             .take(confidencePool.length >= 2 ? 2 : confidencePool.length)
             .toList()
         : confidencePool;
+
+    final String dominantVibe = getDominantVibe();
+    if (dominantVibe.isNotEmpty && confidence > 0.3) {
+      final List<Item> preferredPool = selectionPool
+          .where((item) => DecisionEngine.getVibe(item) == dominantVibe)
+          .toList();
+      if (preferredPool.isNotEmpty) {
+        selectionPool = preferredPool;
+      }
+    }
+
     final List<String> last4Vibes = recentVibes.length <= 4
         ? recentVibes
         : recentVibes.sublist(recentVibes.length - 4);
