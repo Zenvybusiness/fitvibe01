@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../../controller/app_controller.dart';
 import '../../core/engine/decision_engine.dart';
 import '../../core/models/item.dart';
 import '../../data/dataset.dart';
 import '../../services/persistence_service.dart';
+import '../widgets/item_card.dart';
 import 'profile_screen.dart';
 import 'saved_screen.dart';
 
@@ -22,7 +24,6 @@ class _HomeScreenState extends State<HomeScreen> {
   bool isAnimating = false;
   String feedbackText = '';
   double feedbackOpacity = 0.0;
-  Key imageKey = UniqueKey();
 
   @override
   void initState() {
@@ -77,6 +78,8 @@ class _HomeScreenState extends State<HomeScreen> {
   Future<void> handleAction(bool isLike) async {
     if (isAnimating) return;
 
+    HapticFeedback.mediumImpact();
+
     setState(() {
       isAnimating = true;
       feedbackText = isLike ? 'Nice choice' : 'Got it';
@@ -105,10 +108,6 @@ class _HomeScreenState extends State<HomeScreen> {
       selectedVibe: _controller.preferredVibe,
       savedItemIds: _controller.savedItems.map((Item e) => e.id).toList(),
     );
-
-    setState(() {
-      imageKey = UniqueKey();
-    });
 
     await Future.delayed(const Duration(milliseconds: 200));
 
@@ -163,9 +162,11 @@ class _HomeScreenState extends State<HomeScreen> {
         child: Padding(
           padding: const EdgeInsets.all(16),
           child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              const Text('Discover your style'),
-              Expanded(
+              const SizedBox(height: 10),
+              SizedBox(
+                height: MediaQuery.of(context).size.height * 0.55,
                 child: Stack(
                   alignment: Alignment.center,
                   children: [
@@ -188,40 +189,51 @@ class _HomeScreenState extends State<HomeScreen> {
                           ),
                         ),
                       ),
-                    GestureDetector(
-                      onPanUpdate: (details) {
-                        setState(() {
-                          dragX += details.delta.dx;
-                        });
-                      },
-                      onPanEnd: (details) async {
-                        if (dragX > 120) {
-                          await handleAction(true);
-                        } else if (dragX < -120) {
-                          await handleAction(false);
-                        }
-
-                        setState(() {
-                          dragX = 0;
-                        });
-                      },
-                      child: Transform.translate(
-                        offset: Offset(dragX, 0),
-                        child: Transform.rotate(
-                          angle: dragX * 0.001,
-                          child: AnimatedSwitcher(
-                            duration: const Duration(milliseconds: 300),
-                            child: ClipRRect(
-                              key: imageKey,
-                              borderRadius: BorderRadius.circular(16),
-                              child: Image.asset(
-                                'assets/images/${item.image}',
-                                fit: BoxFit.cover,
-                                width: double.infinity,
-                                errorBuilder: (context, error, stackTrace) {
-                                  return const Icon(Icons.broken_image,
-                                      size: 100);
-                                },
+                    SizedBox(
+                      width: double.infinity,
+                      child: AnimatedSwitcher(
+                        duration: const Duration(milliseconds: 400),
+                        transitionBuilder:
+                            (Widget child, Animation<double> animation) {
+                          return SlideTransition(
+                            position: Tween<Offset>(
+                              begin: const Offset(1, 0),
+                              end: Offset.zero,
+                            ).animate(animation),
+                            child: child,
+                          );
+                        },
+                        child: GestureDetector(
+                          key: ValueKey<String>(item.id),
+                          onHorizontalDragUpdate: (DragUpdateDetails details) {
+                            setState(() {
+                              dragX += details.delta.dx;
+                            });
+                          },
+                          onHorizontalDragEnd: (DragEndDetails details) async {
+                            final double vx =
+                                details.velocity.pixelsPerSecond.dx;
+                            if (!isAnimating) {
+                              if (vx > 0) {
+                                await handleAction(true);
+                              } else if (vx < 0) {
+                                await handleAction(false);
+                              }
+                            }
+                            if (!mounted) {
+                              return;
+                            }
+                            setState(() {
+                              dragX = 0;
+                            });
+                          },
+                          child: Transform.translate(
+                            offset: Offset(dragX, 0),
+                            child: Transform.rotate(
+                              angle: dragX * 0.001,
+                              child: ItemCard(
+                                imagePath: item.image,
+                                tags: item.tags,
                               ),
                             ),
                           ),
@@ -235,7 +247,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 duration: const Duration(milliseconds: 300),
                 opacity: feedbackOpacity,
                 child: Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 8),
+                  padding: const EdgeInsets.symmetric(vertical: 16),
                   child: Text(
                     feedbackText,
                     style: const TextStyle(
@@ -245,14 +257,8 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                 ),
               ),
-              const SizedBox(height: 12),
-              Wrap(
-                spacing: 8,
-                children: item.tags.map((tag) {
-                  return Chip(label: Text(tag));
-                }).toList(),
-              ),
               const SizedBox(height: 20),
+              const SizedBox(height: 16),
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                 children: [

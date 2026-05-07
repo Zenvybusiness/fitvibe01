@@ -13,6 +13,8 @@ class AppController {
 
   final PreferenceState state = PreferenceState();
   Item? currentItem;
+  Item? nextItem;
+  String? _preloadSourceItemId;
   List<Item> savedItems = [];
   List<String> recentItems = [];
   List<String> recentVibes = [];
@@ -87,6 +89,28 @@ class AppController {
   String _preferredVibeTag() =>
       preferredVibe.isEmpty ? '' : 'vibe:$preferredVibe';
 
+  void _refreshPreload() {
+    if (currentItem == null) {
+      nextItem = null;
+      _preloadSourceItemId = null;
+      return;
+    }
+    nextItem = DecisionEngine.getNextItem(
+      state: state,
+      lastItem: currentItem,
+      lastAction: ActionType.like,
+      recentItems: recentItems,
+      recentVibes: recentVibes,
+      actionCount: actionCount,
+      skipStreak: skipStreak,
+      likeStreak: likeStreak,
+      confidence: confidence,
+      preferredVibe: _preferredVibeTag(),
+      recordVibeWeights: false,
+    );
+    _preloadSourceItemId = currentItem!.id;
+  }
+
   Future<void> init() async {
     await _loadState();
 
@@ -109,6 +133,7 @@ class AppController {
     }
 
     currentItem ??= Dataset.items.first;
+    _refreshPreload();
   }
 
   Future<void> persistState() async => _saveState();
@@ -120,19 +145,14 @@ class AppController {
   List<Item> getSavedItems() => savedItems;
 
   Item peekNextItem() {
-    return DecisionEngine.getNextItem(
-      state: state,
-      lastItem: currentItem,
-      lastAction: ActionType.like,
-      recentItems: recentItems,
-      recentVibes: recentVibes,
-      actionCount: actionCount,
-      skipStreak: skipStreak,
-      likeStreak: likeStreak,
-      confidence: confidence,
-      preferredVibe: _preferredVibeTag(),
-      recordVibeWeights: false,
-    );
+    final Item? cur = currentItem;
+    if (cur != null &&
+        nextItem != null &&
+        _preloadSourceItemId == cur.id) {
+      return nextItem!;
+    }
+    _refreshPreload();
+    return nextItem!;
   }
 
   void applyInitialPreferences(List<String> vibes) {
@@ -172,7 +192,7 @@ class AppController {
       recentVibes.removeAt(0);
     }
 
-    currentItem = DecisionEngine.getNextItem(
+    final Item resolved = DecisionEngine.getNextItem(
       state: state,
       lastItem: fromItem,
       lastAction: isLike ? ActionType.like : ActionType.skip,
@@ -183,7 +203,13 @@ class AppController {
       likeStreak: likeStreak,
       confidence: confidence,
       preferredVibe: _preferredVibeTag(),
+      recordVibeWeights: true,
     );
+
+    currentItem =
+        (nextItem != null && nextItem!.id == resolved.id) ? nextItem : resolved;
+
+    _refreshPreload();
 
     await _saveState();
   }
@@ -204,5 +230,6 @@ class AppController {
 
     state.reset();
     currentItem = Dataset.items.first;
+    _refreshPreload();
   }
 }

@@ -21,25 +21,31 @@ class ItemCard extends StatelessWidget {
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             ClipRRect(
               borderRadius: const BorderRadius.vertical(
                 top: Radius.circular(12),
               ),
-              child: Image.asset(
-                'assets/images/${imagePath.replaceAll(RegExp(r"\\.(png|jpe?g)\$", caseSensitive: false), "")}.jpg',
-                fit: BoxFit.cover,
-                errorBuilder: (context, error, stackTrace) {
-                  final String base = imagePath.replaceAll(
-                      RegExp(r'\.(png|jpe?g)$', caseSensitive: false), '');
-                  return Image.asset(
-                    'assets/images/$base.png',
-                    fit: BoxFit.cover,
-                    errorBuilder: (context, error, stackTrace) {
-                      return const Icon(Icons.broken_image, size: 100);
-                    },
-                  );
-                },
+              child: AspectRatio(
+                aspectRatio: 3 / 4,
+                child: Image.asset(
+                  'assets/images/${imagePath.replaceAll(RegExp(r"\\.(png|jpe?g)\$", caseSensitive: false), "")}.jpg',
+                  fit: BoxFit.cover,
+                  width: double.infinity,
+                  errorBuilder: (context, error, stackTrace) {
+                    final String base = imagePath.replaceAll(
+                        RegExp(r'\.(png|jpe?g)$', caseSensitive: false), '');
+                    return Image.asset(
+                      'assets/images/$base.png',
+                      fit: BoxFit.cover,
+                      width: double.infinity,
+                      errorBuilder: (context, error, stackTrace) {
+                        return const Icon(Icons.broken_image, size: 100);
+                      },
+                    );
+                  },
+                ),
               ),
             ),
             Padding(

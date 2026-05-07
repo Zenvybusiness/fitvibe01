@@ -127,7 +127,132 @@ Working on:
 
 Phase 6:
 
-- Save user preferences
+- Save user pPROJECT: FitVibe
+
+1. Overview
+
+FitVibe is a swipe-based outfit recommendation app.
+User likes/skips items → system learns vibe preference → improves recommendations.
+
+---
+
+2. Tech Stack
+
+- Flutter (UI)
+- Local Dataset (100 items)
+- DecisionEngine (custom logic)
+- SharedPreferences (persistence)
+
+---
+
+3. Core System
+
+Controller:
+
+AppController
+
+- manages currentItem
+- handles onAction (like/skip)
+- tracks:
+  - likeStreak
+  - skipStreak
+  - confidence
+  - savedItems
+
+Engine:
+
+DecisionEngine
+
+- selects next item
+- uses:
+  - vibeWeights
+  - recentVibes
+  - skipStreak / likeStreak / confidence
+- prevents:
+  - repeat items
+  - vibe loops
+  - weak alignment
+
+---
+
+4. Features Completed
+
+Phase 1–3:
+
+- Recommendation engine working
+- Simulation test implemented
+- Reaction validation added
+
+Phase 4:
+
+- Dataset expanded (100 items)
+
+Phase 5–6:
+
+- UI built (HomeScreen)
+- Image loading working (png + jpg)
+- Like / Skip buttons working
+- Swipe gestures added
+
+Phase 7:
+
+- Onboarding (vibe selection)
+- Persistence:
+  - vibeWeights
+  - confidence
+  - streaks
+  - selectedVibe
+  - onboarding state
+
+Phase 8:
+
+- Saved styles implemented
+- Profile screen implemented
+- Learning priority fixed (uses learned vibe over onboarding)
+
+---
+
+5. Current Phase (IMPORTANT)
+
+PHASE 9 — UX POLISH
+
+Status:
+
+- Feedback animation: NOT DONE
+- Card transition: NOT DONE
+- Swipe polish: PARTIAL
+- Preloading next item: NOT DONE
+
+---
+
+6. Rules (CRITICAL)
+
+- Do NOT change architecture
+- Do NOT rename files
+- Do NOT rewrite full files
+- Only patch specific parts
+- UI and logic must remain separated
+
+---
+
+7. Current Task
+
+Continue Phase 9 UX improvements:
+
+- Animated feedback
+- Animated card transition
+- Preloading next item
+- Gesture smoothness
+
+---
+
+8. Known Issues
+
+- UX feels stiff (no animation)
+- Transitions are instant
+- No preload → slight delay possible
+
+---references
 - Session memory
 - Outfit saving
 - History tracking
