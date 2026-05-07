@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import '../../controller/app_controller.dart';
 import '../../core/engine/decision_engine.dart';
 import '../../services/persistence_service.dart';
-import 'home_screen.dart';
+import '../ui/screens/main_navigation_screen.dart';
 
 class OnboardingScreen extends StatefulWidget {
   const OnboardingScreen({super.key});
@@ -74,6 +74,10 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                     likeStreak: _controller.likeStreak,
                     skipStreak: _controller.skipStreak,
                     confidence: _controller.confidence,
+                    score: _controller.getScore(),
+                    lastUpdatedDay: DateTime.now().day,
+                    streakDays: _controller.getStreakDays(),
+                    lastOpenedDay: _controller.lastOpenedDay,
                     hasSeenOnboarding: true,
                     selectedVibe: selectedVibe,
                     savedItemIds:
@@ -83,7 +87,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                   Navigator.pushReplacement(
                     context,
                     MaterialPageRoute<void>(
-                      builder: (context) => const HomeScreen(),
+                      builder: (context) => const MainNavigationScreen(),
                     ),
                   );
                 },

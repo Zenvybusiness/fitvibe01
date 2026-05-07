@@ -6,6 +6,8 @@ import '../../core/engine/decision_engine.dart';
 import '../../core/models/item.dart';
 import '../../data/dataset.dart';
 import '../../services/persistence_service.dart';
+import '../ui/screens/analyze_screen.dart';
+import '../ui/screens/stylist_screen.dart';
 import '../widgets/item_card.dart';
 import 'profile_screen.dart';
 import 'saved_screen.dart';
@@ -71,9 +73,32 @@ class _HomeScreenState extends State<HomeScreen> {
           (data['skipStreak'] as num?)?.toInt() ?? 0;
       _controller.confidence =
           (data['confidence'] as num?)?.toDouble() ?? 0.0;
+      _controller.score = (data['score'] as num?)?.toDouble() ?? 5.5;
+      _controller.streakDays = (data['streakDays'] as num?)?.toInt() ?? 1;
+      _controller.lastOpenedDay =
+          (data['lastOpenedDay'] as num?)?.toInt() ?? DateTime.now().day;
+      _controller.updateStreak();
+      final int storedDay =
+          (data['lastUpdatedDay'] as num?)?.toInt() ?? DateTime.now().day;
+      if (storedDay != DateTime.now().day) {
+        _controller.yesterdayScore = _controller.score;
+      }
 
       nextItem = _controller.peekNextItem();
     });
+    await PersistenceService.saveData(
+      vibeWeights: DecisionEngine.vibeWeights,
+      likeStreak: _controller.likeStreak,
+      skipStreak: _controller.skipStreak,
+      confidence: _controller.confidence,
+      score: _controller.getScore(),
+      lastUpdatedDay: DateTime.now().day,
+      streakDays: _controller.getStreakDays(),
+      lastOpenedDay: _controller.lastOpenedDay,
+      hasSeenOnboarding: true,
+      selectedVibe: _controller.preferredVibe,
+      savedItemIds: _controller.savedItems.map((Item e) => e.id).toList(),
+    );
   }
 
   Future<void> handleAction(bool isLike) async {
@@ -85,7 +110,7 @@ class _HomeScreenState extends State<HomeScreen> {
       isAnimating = true;
       dragX = 0;
       cardRotation = 0;
-      feedbackText = isLike ? 'Nice choice' : 'Got it';
+      feedbackText = '';
       feedbackOpacity = 1.0;
     });
 
@@ -101,12 +126,17 @@ class _HomeScreenState extends State<HomeScreen> {
     await Future.delayed(const Duration(milliseconds: 300));
 
     await _controller.onAction(isLike);
+    feedbackText = _controller.getFeedbackMessage();
 
     await PersistenceService.saveData(
       vibeWeights: DecisionEngine.vibeWeights,
       likeStreak: _controller.likeStreak,
       skipStreak: _controller.skipStreak,
       confidence: _controller.confidence,
+      score: _controller.getScore(),
+      lastUpdatedDay: DateTime.now().day,
+      streakDays: _controller.getStreakDays(),
+      lastOpenedDay: _controller.lastOpenedDay,
       hasSeenOnboarding: true,
       selectedVibe: _controller.preferredVibe,
       savedItemIds: _controller.savedItems.map((Item e) => e.id).toList(),
@@ -119,6 +149,29 @@ class _HomeScreenState extends State<HomeScreen> {
       feedbackText = '';
       isAnimating = false;
     });
+    if (_controller.shouldShowSummary() && mounted) {
+      await showDialog<void>(
+        context: context,
+        builder: (_) => AlertDialog(
+          title: const Text("Session Summary"),
+          content: Text(
+            "${_controller.getProgressMessage()}\n"
+            "Score: ${_controller.getScore().toStringAsFixed(1)}\n"
+            "${_controller.getComparisonText()}\n"
+            "${_controller.getStreakDays() >= 3 ? "Don't lose your streak" : "Come back tomorrow to continue improving"}",
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.pop(context);
+                _controller.resetSession();
+              },
+              child: const Text("Continue"),
+            ),
+          ],
+        ),
+      );
+    }
   }
 
   @override
@@ -129,7 +182,16 @@ class _HomeScreenState extends State<HomeScreen> {
     }
     return Scaffold(
       appBar: AppBar(
-        title: const Text("Discover your style"),
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text("Discover your style"),
+            Text(
+              "Score: ${_controller.getScore().toStringAsFixed(1)}",
+              style: const TextStyle(fontSize: 14),
+            ),
+          ],
+        ),
         actions: [
           IconButton(
             icon: const Icon(Icons.favorite),
@@ -167,6 +229,45 @@ class _HomeScreenState extends State<HomeScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
+              Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: Text(
+                  "Score: ${_controller.getScore().toStringAsFixed(1)}   "
+                  "${_controller.getStreakDays()}-day streak   "
+                  "${_controller.getProgressMessage()}",
+                  style: Theme.of(context).textTheme.bodyMedium,
+                ),
+              ),
+              Align(
+                alignment: Alignment.centerLeft,
+                child: Wrap(
+                  spacing: 4,
+                  children: [
+                    TextButton(
+                      onPressed: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => StylistScreen(controller: _controller),
+                          ),
+                        );
+                      },
+                      child: const Text('Improve My Style'),
+                    ),
+                    TextButton(
+                      onPressed: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => AnalyzeScreen(controller: _controller),
+                          ),
+                        );
+                      },
+                      child: const Text('Analyze My Style'),
+                    ),
+                  ],
+                ),
+              ),
               Expanded(
                 child: LayoutBuilder(
                   builder: (BuildContext context, BoxConstraints constraints) {

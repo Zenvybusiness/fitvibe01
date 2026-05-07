@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
-import 'screens/home_screen.dart';
 import 'screens/onboarding_screen.dart';
+import 'ui/screens/main_navigation_screen.dart';
 import 'services/persistence_service.dart';
 
 Future<void> main() async {
@@ -21,7 +21,9 @@ class FanApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
-      home: hasSeenOnboarding ? const HomeScreen() : const OnboardingScreen(),
+      home: hasSeenOnboarding
+          ? const MainNavigationScreen()
+          : const OnboardingScreen(),
     );
   }
 }
